@@ -1,0 +1,56 @@
+PICP PROJECT — ALGORITHM PSEUDOCODE
+
+A. Standard ICP baseline
+1. Input source point set X and model point set Y.
+2. Initialise transformed source X' = X.
+3. Repeat until convergence or the iteration limit:
+   a. For every point in X', find its nearest neighbour in Y.
+   b. Estimate the rigid rotation and translation using unweighted SVD.
+   c. Apply the rigid transform to X'.
+4. Return the registered source point set.
+
+B. Simplified Soft-EM-ICP comparison baseline
+1. Initialise X' = X and a large Gaussian variance.
+2. Repeat until convergence or the iteration limit:
+   a. Compute pairwise squared distances between X' and Y.
+   b. Convert distances into soft responsibilities using a Gaussian kernel.
+   c. Compute the expected target point for each source point.
+   d. Estimate a rigid transform using SVD and update X'.
+   e. Reduce the variance using the fixed cooling schedule.
+3. Return X'.
+   Note: this is a simplified soft-correspondence baseline, not a full
+   reproduction of Granger and Pennec's multi-scale EM-ICP.
+
+C. Probability Iterative Closest Point (PICP)
+1. Input source X and model Y; initialise R = I, t = 0, and p_i = 1/Nx.
+2. Initialise a large Gaussian variance sigma^2 and choose lambda in (1, 2].
+3. Set X' = R X + t.
+4. Repeat:
+   a. E-step: for every transformed source point x'_i, find its nearest
+      model point y_c(i) (the correspondence in Equation 8 of the paper).
+   b. M-step: estimate R and t by weighted SVD, using the previous
+      iteration probabilities p_i as weights.
+   c. Transform the original source points using the updated R and t.
+   d. Compute the EM variance from the probability-weighted squared
+      correspondence residuals, divided by the coordinate dimension.
+   e. Anneal the variance: use sigma_previous^2/lambda while it exceeds
+      the EM variance; otherwise use the EM variance (with a small floor).
+   f. Update and normalise the Gaussian correspondence probabilities:
+      p_i proportional to exp(-residual_i^2/(2 sigma^2)).
+   g. Compute PICP's probability-weighted RMS objective.
+5. Stop when the change in weighted RMS is below epsilon or the maximum
+   iteration count is reached.
+6. Return the registered source and final probabilities.
+
+D. Evaluation (same evaluation for every method)
+1. Compute all-point nearest-neighbour RMSE against the clean model.
+2. Using the known synthetic corruption mask, separately compute inlier
+   and outlier nearest-neighbour RMSE.
+3. Also compute direct inlier RMSE using the known original point indices.
+4. Report PICP weighted RMS and effective sample size as PICP diagnostics.
+
+Metric warning: PICP weighted RMS is an optimisation objective with
+probability weights. It is not numerically comparable to unweighted RMSE.
+Direct inlier RMSE is available because the synthetic generator preserves
+known point indices; real unordered point clouds do not generally provide
+this ground-truth correspondence.

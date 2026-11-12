@@ -1,0 +1,4 @@
+Shape,ICP RMSE (all points),EM-ICP RMSE (all points),PICP RMSE (all points),ICP RMSE (inliers),EM-ICP RMSE (inliers),PICP RMSE (inliers),ICP direct inlier RMSE,Soft-EM direct inlier RMSE,PICP direct inlier RMSE,PICP weighted RMS (paper objective),PICP effective sample size
+Apple,4.747 ± 0.047,4.748 ± 0.047,5.857 ± 0.028,3.099 ± 0.013,3.052 ± 0.027,1.755 ± 0.065,6.876 ± 0.138,6.735 ± 0.076,4.956 ± 0.222,0.028 ± 0.027,5.020 ± 3.277
+Cup,4.801 ± 0.039,4.805 ± 0.039,5.704 ± 0.036,3.009 ± 0.027,3.059 ± 0.025,0.560 ± 0.018,4.776 ± 0.062,4.944 ± 0.071,0.576 ± 0.019,0.049 ± 0.031,15.137 ± 9.563
+Children,4.831 ± 0.046,4.837 ± 0.049,5.497 ± 0.068,2.468 ± 0.024,2.373 ± 0.045,0.485 ± 0.011,3.375 ± 0.083,3.272 ± 0.076,0.565 ± 0.018,0.009 ± 0.002,3.913 ± 0.676
