@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Probability Iterative Closest Point (PICP) for Position Estimation
 
 This project implements and evaluates Probability Iterative Closest Point (PICP), based on:
@@ -293,3 +294,7 @@ follow-ups, not a blind hold-out or a pre-registered hyperparameter search. Do
 not claim universal PICP superiority or exact reproduction of the numerical
 results in the original article. Validate the final selected setting against
 predeclared settings, additional data, noise regimes, and seeds if time allows.
+=======
+# Computer-Vision-PICP
+Computer Vision PICP MA2
+>>>>>>> d5c6dbd2c17691a79c3302ae8f8651d97e346859
