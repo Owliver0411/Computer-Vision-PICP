@@ -1,0 +1,21 @@
+{
+  "points": 350,
+  "trials": 3,
+  "iterations": 35,
+  "outliers": "0.30",
+  "overlap": 0.75,
+  "seed": 20261112,
+  "noise": 0.005,
+  "include_bunny": false,
+  "bunny_only": true,
+  "output": "results/3d_bunny_partial",
+  "datasets": [
+    "bun_zipper.ply"
+  ],
+  "normalisation": "centred; longest bbox side = 1 unit",
+  "data_provenance": {
+    "bun_zipper.ply": "real Stanford Bunny geometry from Cyberware optical scan; reconstructed zipper PLY; source registration and corruption are synthetically generated",
+    "other": "procedurally generated non-planar surfaces"
+  },
+  "scan_alignment_note": "This benchmark registers a synthetic rigid transformation of points sampled from a single real reconstructed mesh, not two independent real sensor scans."
+}

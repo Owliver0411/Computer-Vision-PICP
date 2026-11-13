@@ -1,0 +1,31 @@
+STANFORD BUNNY INTEGRATION STATUS (2026-11-12)
+================================================
+The official Stanford Bunny reconstructed mesh is bundled as data/3d/bun_zipper.ply.
+Loaded and validated: 35,947 vertices, 3D x/y/z coordinates.
+A raw Stanford range scan bun000_raw.ply is also bundled as source material
+but the evaluated cases use vertices of the reconstructed mesh only.
+
+The source point clouds are artificially rotated, translated, corrupted
+by synthetic Gaussian noise, and injected with synthetic outliers. These
+are controlled tests on real scanned geometry, not pairwise registration
+of two separately captured scanner views.
+
+Run:
+ python -m pip install -r requirements.txt
+ python run_all.py
+ python run_picp_3d.py --bunny-only --overlap 0.75 --outliers 0.30 --output results/3d_bunny_partial
+ python -m pytest -q
+
+Results:
+ results/3d_bunny/trials.csv, summary.csv, 3d_results_table.md, figures/
+ results/3d_bunny_partial/trials.csv, summary.csv, 3d_results_table.md, figures/
+
+Stanford Computer Graphics Laboratory, Stanford 3D Scanning Repository:
+https://graphics.stanford.edu/data/3Dscanrep/
+Research use and free redistribution with source acknowledgement; no
+commercial use without permission.
+
+PICP's all-point NN-RMSE is NOT uniformly lowest; the direct inlier RMSE
+shows the strongest improvement under our synthetic outlier conditions.
+The 3D numbers are in normalised object units and are not comparable
+with the 2D pixel-valued errors in the original paper's Table II.

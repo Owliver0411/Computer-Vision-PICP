@@ -54,3 +54,39 @@ probability weights. It is not numerically comparable to unweighted RMSE.
 Direct inlier RMSE is available because the synthetic generator preserves
 known point indices; real unordered point clouds do not generally provide
 this ground-truth correspondence.
+
+E. 3D experiment (extension, not reproduction of 2D Table II)
+1. Load two offline, procedurally generated non-planar PLY point clouds.
+   Optionally load a real Stanford Bunny PLY if supplied/downloaded.
+2. Centre each point set and scale the longest bounding-box side to one unit.
+3. Deterministically select N=350 model points per object.
+4. For each outlier rate (10%, 30%) and each of 3 fixed trial seeds:
+   a. Optionally delete highest-z source points for partial overlap.
+   b. Generate misaligned source using a known 3D rotation and translation.
+   c. Add Gaussian inlier noise; displace selected source points as outliers.
+   d. Record true source->target indices, inlier masks and inverse pose.
+   e. Run existing ICP, simplified Soft-EM-ICP, original PICP and exploratory
+      slower-annealing PICP on the exact same source and target sets.
+   f. Evaluate direct inlier RMSE and all-point NN-RMSE consistently.
+   g. From the recovered composed rigid pose, compute rotation and translation
+      errors against the known inverse pose.
+   h. For PICP, also report its internal weighted RMS and ESS separately.
+5. Save per-trial CSV, grouped mean/std, configuration, and 3D visualisations.
+6. Keep 2D paper reproduction and 3D extension results separate.
+
+Caveats:
+- The built-in 3D clouds are synthetic (not scans), and pose accuracy is
+  evaluated against ground truth available only in this controlled benchmark.
+- The slow-annealing setting was previously examined on the 2D Apple data;
+  do not represent it as a blind or paper-prescribed 3D default.
+- Real scans and independent objects are future tests for generalisation.
+
+STANFORD BUNNY 3D EXTENSION (real scanned geometry; synthetic registration cases)
+1. Read data/3d/bun_zipper.ply and use mesh vertex coordinates as a 3D point cloud.
+2. Centre and normalise the longest bounding-box dimension to 1.
+3. Sample 350 model vertices with a fixed seed (known correspondences retained).
+4. For each trial, rotate and translate a copy, add Gaussian noise and mark 10%/30% displaced outliers.
+5. Run the same ICP / simplified Soft-EM-ICP / PICP algorithms on identical cases.
+6. Compare errors to the known inverse 3D pose, direct inlier RMSE, common NN-RMSE and ESS.
+7. Save CSVs and 3D figures to results/3d_bunny. For 75% overlap, remove a top-z region from the source before steps 4-6.
+Note: this is synthetic registration of REAL scan geometry, not scan-to-scan alignment of independently recorded views.

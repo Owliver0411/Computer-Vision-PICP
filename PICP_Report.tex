@@ -1,0 +1,606 @@
+\documentclass[11pt,a4paper]{article}
+
+% Works with pdfLaTeX and Overleaf.
+\usepackage[a4paper,margin=24mm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{amsmath}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xurl} % allow line breaks in long dataset URLs
+\usepackage{float}
+\usepackage{caption}
+\usepackage{xcolor}
+\hypersetup{colorlinks=true,linkcolor=blue!55!black,urlcolor=blue!55!black,citecolor=blue!55!black}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\renewcommand{\arraystretch}{1.16}
+\captionsetup{font=small}
+
+\title{\textbf{Probability Iterative Closest Point: 2D Reproduction and 3D Registration}\\[4pt]
+       \large Computer Vision -- Research Paper Reproduction Project}
+\author{\textbf{Team members:}\\
+        Student 1 -- Full name\\
+        Student 2 -- Full name\\
+        Student 3 -- Full name\\[5pt]
+        Vrije Universiteit Brussel}
+\date{Submission deadline: 21 December 2026}
+
+\begin{document}
+\maketitle
+\vspace{-4mm}
+
+\begin{center}
+\textbf{Reproduced article:} J. Liu, S. Du, C. Zhang, J. Zhu, K. Li, and J. Xue,
+``Probability Iterative Closest Point Algorithm for Position Estimation,''
+\emph{2014 IEEE 17th International Conference on Intelligent Transportation Systems},
+pp. 458--463, 2014. DOI: \href{https://doi.org/10.1109/ITSC.2014.6957732}{10.1109/ITSC.2014.6957732}.
+\end{center}
+
+\section{Summary}
+We studied Probability Iterative Closest Point (PICP), a way to align point
+sets when some points are noisy or misplaced. We reproduced the main idea on
+three 2D shapes, then extended the comparison to three-dimensional data. The
+3D datasets include two generated surfaces and the \textbf{Stanford Bunny},
+a reconstructed model from real optical scans. We compared ICP, a simplified
+Soft-EM-ICP method, PICP with the original project settings, and PICP with
+slower annealing. To evaluate the methods fairly, we used the same test cases
+and measured nearest-neighbour error, known inlier error, and 3D rotation and
+translation errors. PICP often aligned the known inlier points more accurately
+under synthetic outlier corruption. It did not always achieve the smallest
+all-point error and could struggle with some starting positions or incomplete
+shapes. On the Bunny, we applied known artificial transformations and noise
+to the real reconstructed geometry. Therefore, these results show controlled
+registration on real 3D geometry, \textbf{not} alignment of two independently
+captured scans. The new work extends the paper and does not directly reproduce
+its numerical results.
+
+\section{Implementation}
+
+\subsection{Data acquisition}
+We used the \textbf{MPEG-7 CE-Shape-1 Part B} shape dataset, which is also used
+in the original PICP paper~\cite{liu2014}. The full dataset contains 1,400
+binary images in 70 shape groups~\cite{dataset}. For this project we used three
+included images: \texttt{apple-1.gif}, \texttt{cup-1.gif}, and
+\texttt{children-1.gif}. They are provided in the project's \texttt{data/}
+folder, so no download is needed for the main experiment.
+
+Dataset information and a download source are available on the
+\href{https://www.ehu.eus/ccwintco/index.php/MPEG-7_Core_Experiment_CE-Shape-1_Test_Set._Benchmarking_image_database_for_shape_recognition_techniques}{MPEG-7 dataset information page}.
+The original paper is included in our project as \texttt{PICP.pdf}.
+
+\subsection{Preprocessing}
+Each GIF image is converted into a set of 2D contour points:
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+  \item Open the image in grayscale and use intensity 128 to separate the shape from its background.
+  \item Find boundary pixels using horizontal and vertical changes in the binary image.
+  \item Convert image coordinates to $(x,-y)$ and move the shape centre to $(0,0)$.
+  \item Keep at most 600 boundary points, selected at evenly spaced indices from the detected points.
+\end{enumerate}
+We do not resize the images or change their scale. We then make a second,
+misaligned point set by rotating the shape by $15^\circ$ and adding a translation
+of $(12,-8)$ pixels. We add Gaussian noise with standard deviation 0.4 pixels.
+We also add a stronger displacement with mean $(-12,-12)$ pixels and standard
+deviation 2 pixels to points in a selected spatial region. These points are
+marked as synthetic outliers. The known point correspondence is kept so that
+we can measure inlier error accurately.
+
+The main experiment uses \textbf{five trials per shape} and \textbf{600 points}
+(where available). Its base random seed is \textbf{42}; individual seeds are
+computed as $42 + 1000s + t$, where $s$ is the shape index and $t$ is the
+trial number starting from zero. Thus, repeated runs create the same cases.
+
+\subsection{New 3D data and preprocessing}
+For the 3D extension, we first created two non-planar point clouds:
+\texttt{asymmetric\_shell.ply} and \texttt{curved\_tube.ply}. These are
+\textbf{synthetic} shapes. The original code and seed 2026 are provided so they
+can be generated again. We also added the high-resolution \textbf{Stanford
+Bunny}, \texttt{bun\_zipper.ply}, which has 35,947 vertices. This mesh was
+reconstructed from real optical scans at Stanford University Computer Graphics
+Laboratory~\cite{stanfordrepo}. It is included in \texttt{data/3d/}, together
+with one original raw scan for provenance. Our experiments use the
+\emph{reconstructed mesh vertices}, not the raw scan. We acknowledge Stanford
+as the source of this dataset.
+
+For each 3D object, we centre the point coordinates and divide by the longest
+bounding-box side, so the longest dimension is one unit. We select 350 points
+with a fixed seed. We then create an artificial source by rotating these
+points by Euler xyz angles $(12^\circ,-9^\circ,15^\circ)$ and translating by
+$(0.18,-0.10,0.08)$. We add Gaussian noise with standard deviation 0.005
+normalised units and displace 10\% or 30\% of source points as outliers.
+Outlier displacement has mean $(0.22,-0.22,0.15)$ and standard deviation
+0.18. We use three fixed trials per condition, with base seed 20261112.
+
+In a harder 3D test we keep only the lower 75\% of the source points, based
+on the $z$ coordinate, while leaving the target surface complete. Because we
+created the misalignment ourselves, we know the original matching point and
+the correct inverse rotation and translation. This allows direct error
+measurement. Even for the Stanford Bunny, the registration pairs are
+\textbf{synthetically transformed copies of the same scanned reconstruction},
+not two separate camera or scanner captures.
+
+\subsection{Algorithms}
+The task is \emph{rigid point-set registration}: find a rotation $R$ and a
+translation $t$ so that transformed source points align with model points.
+In 2D, $R$ is a $2\times 2$ matrix; in 3D, it is a $3\times 3$ matrix:
+\begin{equation}
+  x_{\mathrm{aligned}} = Rx + t.
+\end{equation}
+All three methods repeat two basic steps: find corresponding points and update
+the transformation.
+
+\textbf{ICP:} Each source point is matched to its nearest model point. An SVD
+calculation finds the rotation and translation that reduce the squared distance
+between the matched points. All points have equal influence.
+
+\textbf{Soft-EM-ICP (simplified):} Each source point has a soft match to several
+model points. These matches are used to find a new transformation. We use a
+simplified soft-correspondence implementation, not the full EM-ICP method from
+the original paper.
+
+\textbf{PICP:} As in ICP, each source point finds its nearest model point.
+However, PICP also gives each point a probability weight. Points with large
+matching errors can receive smaller weights, so they influence the next SVD
+transformation less. PICP updates the Gaussian variance during its iterations.
+This follows the main idea in the paper~\cite{liu2014}.
+
+\subsection{Implementation choices and differences from the paper}
+The code is written in Python with NumPy, SciPy, Pillow, Matplotlib, and Pandas.
+The same weighted SVD routine supports both 2D and 3D coordinates. The 3D
+extension uses SciPy's 3D rotation utilities, an ASCII/binary PLY loader,
+and Matplotlib's 3D plotting tools. Open3D is optional and is not required
+to reproduce the saved figures.
+We use a \texttt{KDTree} to find nearest neighbours; the original paper uses
+Delaunay triangulation for this search. The basic nearest-point rule is the
+same, but the search method is different. The paper describes an EM-ICP
+comparison; our Soft-EM-ICP is a simplified baseline. Our noise generator and
+outlier percentages are also our own controlled tests. Finally, we did not
+reproduce the paper's real vehicle-position experiment, because that dataset
+is not part of this project.
+
+For the main experiment, PICP uses annealing parameter $\lambda=1.4$ and initial
+variance scale $0.20$. ICP and PICP allow up to 60 iterations. A later
+\emph{exploratory} experiment also tests $\lambda=1.1$ and scale $0.05$.
+These alternative settings are reported separately rather than silently
+replacing the main settings.
+
+\subsection{Environment and runtime}
+This project runs on a CPU; a GPU and model training are not required.
+The Python packages are listed in \texttt{requirements.txt}. The main experiments run with \texttt{python run\_all.py} from the project folder:
+2D main, synthetic 3D full overlap, Stanford Bunny full overlap, both 75\%
+source-coverage partial-overlap experiments, and 2D table generation.
+The Bash helper \texttt{run.sh} can also be used where Bash is installed.
+The robustness and
+sensitivity experiments are separate Python scripts described in the README.
+
+\textbf{Complete before submission:} CPU: \underline{\hspace{38mm}};
+RAM: \underline{\hspace{20mm}} GB;
+GPU: not used;
+main experiment runtime: \underline{\hspace{20mm}} seconds.
+These values should be measured on the computer used for the submitted runs.
+
+\subsection{Optional single-case speed demonstration}
+We also provide \texttt{benchmark\_single\_case.py} to compare the execution time
+and registration error of the methods on \emph{one fixed input case}. The default
+examples are a 2D Apple contour (300 points) and a 3D Stanford Bunny sample
+(350 points). All methods are given the same source and target points for each
+case. We time only the registration call, not data loading, evaluation, or
+plotting. The script outputs per-method runtime, number of iterations,
+all-point nearest-neighbour RMSE, direct inlier RMSE, and PICP's internal
+weighted RMS, together with alignment figures. The resulting CSV is saved at
+\path{results/single_case_benchmark/single_case_results.csv}.
+
+This is an \textbf{optional demonstration}, not part of the multi-trial tables
+below. We do not report its runtime values as fixed reference numbers: runtime
+depends on the machine and one timed run is not enough for a reliable speed
+ranking. For a strong timing comparison we would repeat the same case several
+times and report the median and variation. The 2D and 3D error units are also
+different and should not be directly compared.
+
+\section{Results}
+
+\subsection{How we measure alignment}
+We report the \textbf{nearest-neighbour root mean square error (NN-RMSE)} for
+all methods. This is the average distance from each aligned point to its
+nearest model point, expressed in pixels. A lower value means the points are
+closer together. We also report \textbf{direct inlier RMSE}, which compares
+uncorrupted points to their known original corresponding points. This is
+possible because we created the test data ourselves. These two measures answer
+different questions and should not be mixed up.
+
+PICP also computes its own \emph{probability-weighted RMS}. Its small value
+must \textbf{not} be treated as directly better than ICP's unweighted RMSE.
+Tables below show mean $\pm$ standard deviation over five trials.
+
+\subsection{Main quantitative results}
+\begin{table}[H]
+\centering
+\caption{All-point nearest-neighbour RMSE in pixels (lower is better).}
+\label{tab:allrmse}
+\small
+\begin{tabular}{lccc}
+\toprule
+Shape & ICP & Simplified Soft-EM-ICP & PICP \\
+\midrule
+Apple & $4.747\pm0.047$ & $4.748\pm0.047$ & $5.857\pm0.028$ \\
+Cup & $4.801\pm0.039$ & $4.805\pm0.039$ & $5.704\pm0.036$ \\
+Children & $4.831\pm0.046$ & $4.837\pm0.049$ & $5.497\pm0.068$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+In Table~\ref{tab:allrmse}, standard ICP has the lowest all-point NN-RMSE
+for all three shapes. This metric includes the corrupted outlier points.
+
+\begin{table}[H]
+\centering
+\caption{Direct inlier RMSE in pixels using known synthetic point correspondences (lower is better).}
+\label{tab:directrmse}
+\small
+\begin{tabular}{lccc}
+\toprule
+Shape & ICP & Simplified Soft-EM-ICP & PICP \\
+\midrule
+Apple & $6.876\pm0.138$ & $6.735\pm0.076$ & $4.956\pm0.222$ \\
+Cup & $4.776\pm0.062$ & $4.944\pm0.071$ & $0.576\pm0.019$ \\
+Children & $3.375\pm0.083$ & $3.272\pm0.076$ & $0.565\pm0.018$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+In Table~\ref{tab:directrmse}, PICP gives a lower direct inlier error for
+every shape. Its result is especially strong on Cup and Children. However,
+this does not mean it is the best method on every measure.
+
+\subsection{Qualitative results}
+Figure~\ref{fig:input} shows one synthetic registration case. It contains
+a shifted and rotated source shape, with some noisy points.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.72\textwidth]{figures/figure1_synthetic_input.png}
+\caption{Example input point sets from the Apple experiment, including synthetic outliers.}
+\label{fig:input}
+\end{figure}
+
+Figure~\ref{fig:registration} shows the registered Apple point sets for the
+three methods. It is useful to compare the overall shape and the points that
+are still far from the model. Figure~\ref{fig:convergence} shows how the
+common nearest-neighbour error changes over iterations.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/figure2_apple_registration.png}
+\caption{Apple registration results: ICP, simplified Soft-EM-ICP, and PICP.}
+\label{fig:registration}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.82\textwidth]{figures/figure3_common_metric_convergence.png}
+\caption{Convergence on Apple, evaluated with the same all-point NN-RMSE metric.}
+\label{fig:convergence}
+\end{figure}
+
+\subsection{Additional tests: outliers and PICP settings}
+We also tested 10\%, 20\%, 30\%, and 40\% randomly selected outliers. Each
+setting used five trials and 300 points. For example, at 30\% outliers, the
+following direct inlier errors were observed:
+
+\begin{table}[H]
+\centering
+\caption{Robustness test at 30\% synthetic outliers: direct inlier RMSE (mean $\pm$ standard deviation, pixels).}
+\small
+\begin{tabular}{lccc}
+\toprule
+Shape & ICP & Simplified Soft-EM-ICP & PICP \\
+\midrule
+Apple & $6.646\pm0.289$ & $5.309\pm0.240$ & $8.478\pm4.047$ \\
+Cup & $4.391\pm0.746$ & $6.022\pm0.131$ & $1.444\pm1.946$ \\
+Children & $4.727\pm0.256$ & $4.747\pm0.113$ & $0.571\pm0.027$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This test shows that PICP's advantage depends on the shape and the noise.
+In particular, its Apple result is unstable at 30\% outliers.
+
+To investigate Apple, we tested 12 combinations of annealing and initial
+variance settings. We selected the slower-annealing setting for an
+\emph{exploratory} follow-up test on new random seeds; it was not selected
+before looking at the Apple results.
+
+\begin{table}[H]
+\centering
+\caption{Extra 600-point validation: direct inlier RMSE on five new trials (pixels).}
+\label{tab:sensitivity}
+\small
+\begin{tabular}{lccc}
+\toprule
+Shape & ICP & PICP main setting & PICP exploratory setting \\
+\midrule
+Apple & $6.978\pm0.317$ & $4.893\pm0.278$ & $1.821\pm0.081$ \\
+Cup & $4.727\pm0.095$ & $0.583\pm0.011$ & $1.613\pm0.068$ \\
+Children & $3.376\pm0.070$ & $0.589\pm0.015$ & $0.573\pm0.006$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Slower annealing improves Apple substantially, but it makes Cup worse.
+Therefore, one set of parameters is not automatically best for every shape.
+We also tested different starting angles on Apple. With a $30^\circ$ initial
+rotation, the direct inlier error increased to 42.151 pixels for the main PICP
+setting and 38.873 pixels for the slower-annealing setting. This is a failure
+case: both methods can struggle when the starting alignment is too far away.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.84\textwidth]{figures/apple_parameter_sensitivity.png}
+\caption{Apple parameter sweep. This diagnostic checks how PICP responds to different annealing and variance settings.}
+\label{fig:sensitivity}
+\end{figure}
+
+\subsection{New 3D results: full overlap}
+The two synthetic 3D shapes are different from the MPEG-7 2D shapes. Here,
+all distances use \textbf{normalised object units}, not pixels. We measured
+the direct inlier RMSE (using known original matching points), the common
+all-point NN-RMSE, rotation error in degrees, and translation error.
+Rotation error is the angle between the estimated inverse pose and the known
+inverse pose. Translation error is their Euclidean distance.
+Each table entry below is a mean over three fixed trials.
+
+\begin{table}[H]
+\centering
+\caption{3D experiment with 30\% injected outliers and full overlap: mean errors (lower is better).}
+\label{tab:3d}
+\scriptsize
+\begin{tabular}{llrrrr}
+\toprule
+3D dataset & Method & Direct inlier RMSE & All-point NN-RMSE & Rotation ($^\circ$) & Translation \\
+\midrule
+Shell & ICP & 0.1575 & 0.1424 & 14.63 & 0.1404 \\
+Shell & Soft-EM & 0.1486 & 0.1428 & 14.30 & 0.1300 \\
+Shell & PICP main & 0.0086 & 0.1623 & 0.13 & 0.0010 \\
+Shell & PICP slow & 0.0086 & 0.1619 & 0.15 & 0.0013 \\
+Curved tube & ICP & 0.1388 & 0.1433 & 7.96 & 0.1298 \\
+Curved tube & Soft-EM & 0.1149 & 0.1445 & 9.39 & 0.1021 \\
+Curved tube & PICP main & 0.0089 & 0.1673 & 0.19 & 0.0015 \\
+Curved tube & PICP slow & 0.0089 & 0.1668 & 0.12 & 0.0012 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+In Table~\ref{tab:3d}, PICP has lower \emph{direct inlier error} and lower
+rotation error than ICP in these synthetic cases. But PICP's all-point
+nearest-neighbour error can be higher: the injected outliers remain far from
+the original surface. These two measures answer different questions. The
+slower-annealing version was selected after earlier 2D Apple testing, so it
+is reported as an exploratory comparison, not as a new paper-prescribed rule.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/3d_asymmetric_shell_30pct_registration.png}
+\caption{3D asymmetric-shell example with 30\% synthetic outliers. Blue is the target and red is the source; the panels compare before registration and four methods.}
+\label{fig:3d_full}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.70\textwidth]{figures/3d_curved_tube_30pct_convergence.png}
+\caption{3D curved-tube common NN-RMSE during registration. All algorithms use the same measure on this graph.}
+\label{fig:3d_curve}
+\end{figure}
+
+\subsection{3D partial-overlap test}
+We also removed the upper 25\% of each source surface, while keeping the full
+target, and added 30\% outliers. This is a harder synthetic case. In Table
+\ref{tab:3d_partial} the original PICP sometimes fails to recover the pose.
+The slower-annealing PICP often performs better, but the small number of
+trials means this is an exploratory finding.
+
+\begin{table}[H]
+\centering
+\caption{3D partial overlap (75\% source coverage, 30\% outliers): mean direct inlier error and pose success.}
+\label{tab:3d_partial}
+\small
+\begin{tabular}{llrr}
+\toprule
+Dataset & Method & Direct inlier RMSE & Pose success \\
+\midrule
+Shell & ICP & 0.1299 & 0\% \\
+Shell & Soft-EM & 0.2096 & 0\% \\
+Shell & PICP main & 0.0261 & 67\% \\
+Shell & PICP slow & 0.0087 & 100\% \\
+Curved tube & ICP & 0.1855 & 0\% \\
+Curved tube & Soft-EM & 0.1824 & 0\% \\
+Curved tube & PICP main & 0.0976 & 0\% \\
+Curved tube & PICP slow & 0.0183 & 67\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{figures/3d_partial_curved_tube_30pct_registration.png}
+\caption{Partially visible curved tube with 30\% synthetic outliers. Missing source points make registration more difficult.}
+\label{fig:3d_partial}
+\end{figure}
+
+A successful pose has rotation error below $5^\circ$ \emph{and} translation
+error below 0.05 normalised units. This is our evaluation threshold, not a
+threshold from the original PICP paper. The CSV files give results for
+both 10\% and 30\% outliers, including standard deviations, runtimes, and
+effective sample sizes. They are stored in \texttt{results/3d/} and
+\texttt{results/3d\_partial/}.
+
+\subsection{Stanford Bunny: scanned 3D geometry}
+We also tested the four methods on vertices sampled from the
+\textbf{real Stanford Bunny reconstructed model}. The data were scanned
+optically and reconstructed by Stanford~\cite{stanfordrepo}. The test itself
+still uses a \emph{synthetically generated source}: the model vertices are
+transformed, then affected by simulated noise and outliers. This controlled
+test should not be described as independent scan-to-scan registration.
+
+Table~\ref{tab:bunny} reports the mean over three fixed trials with 350
+sampled target points, full overlap, and 30\% artificially corrupted source
+points. Errors use normalised object units, not pixels. PICP is more accurate
+on the known clean correspondences and the true 3D pose, while ICP has a
+smaller all-point NN-RMSE because this metric includes outliers.
+
+\begin{table}[H]
+\centering
+\caption{Stanford Bunny reconstruction, 30\% simulated outliers and full overlap: average of three trials (lower is better).}
+\label{tab:bunny}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Method & Direct inlier RMSE & All-point NN-RMSE & Rotation ($^\circ$) & Translation \\
+\midrule
+ICP & 0.1359 & 0.1355 & 12.79 & 0.1139 \\
+Soft-EM (simplified) & 0.1278 & 0.1360 & 8.18 & 0.1185 \\
+PICP original & 0.0086 & 0.1491 & 0.24 & 0.0010 \\
+PICP slow & 0.0086 & 0.1488 & 0.20 & 0.0013 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.96\textwidth]{figures/3d_bunny_30pct_registration.png}
+\caption{Real Stanford Bunny reconstructed geometry under a simulated rigid transform, noise, and 30\% outliers. Blue points are the model; red points show the source before and after alignment.}
+\label{fig:bunny}
+\end{figure}
+
+We also used 75\% source coverage with 30\% outliers. Table~\ref{tab:bunny_partial}
+shows that PICP remained accurate in the three fixed trials. These are
+promising controlled tests, but there are too few trials to draw a broad
+conclusion for arbitrary real-world scans.
+
+\begin{table}[H]
+\centering
+\caption{Stanford Bunny with 75\% simulated source coverage and 30\% outliers: three-trial means. Pose success uses the threshold defined earlier.}
+\label{tab:bunny_partial}
+\small
+\begin{tabular}{lrr}
+\toprule
+Method & Direct inlier RMSE & Pose success \\
+\midrule
+ICP & 0.0729 & 33\% \\
+Soft-EM (simplified) & 0.0813 & 0\% \\
+PICP original & 0.0086 & 100\% \\
+PICP slow & 0.0087 & 100\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The full numerical results, including standard deviations, run times,
+effective sample sizes, and rotation/translation errors, are in
+\texttt{results/3d\_bunny/} and \texttt{results/3d\_bunny\_partial/}.
+
+\subsection{Comparison with the original paper}
+The original paper reports the following RMS values in its Table II:
+
+\begin{table}[H]
+\centering
+\caption{RMS values reported by Liu et al.~\cite{liu2014}, Table II. These are \emph{not} our results.}
+\small
+\begin{tabular}{lccc}
+\toprule
+Shape & ICP & EM-ICP & PICP \\
+\midrule
+Apple & 7.3768 & 7.2094 & 0.0035 \\
+Cup & 4.3299 & 3.9069 & 0.0047 \\
+Children & 1.4703 & 1.4144 & 0.0057 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The paper finds that PICP performs very well on its experiments. Our tests
+also show an improvement in direct inlier alignment for the main synthetic
+cases, but our all-point NN-RMSE does not show the same pattern. We must
+\textbf{not compare the numbers in the paper's table directly with ours}:
+the corruption process, number of points, implementation details, and reported
+RMS measures are not confirmed to be identical.
+
+\section{Discussion}
+PICP can help when some points are unreliable because it gives different
+weights to different points. In our main experiment this helped PICP align
+the unchanged points, especially for Cup and Children. However, outliers still
+count in the all-point NN-RMSE, which was higher for PICP. This is why we
+show both evaluation measures. The new 3D experiments show a clearer
+advantage for PICP on known clean correspondences when many outliers are
+present, but these are synthetic objects with synthetic corruption. The
+partial-overlap experiment illustrates that some PICP settings can still
+fail and that parameter choice matters.
+
+We also noticed that the main PICP setting gave a very small \emph{effective
+sample size}: about 5 points on Apple, 15 on Cup, and 4 on Children, even
+though the original point sets contain hundreds of points. This means that
+a small number of points carry most of the probability weight. Slower
+annealing can reduce this problem, but it does not improve every shape.
+
+Our results are different from the paper partly because we used a custom
+synthetic noise model, only three example shapes, a simplified EM-ICP
+baseline, and a KD-tree implementation. We did not have the vehicle-position
+data used in the second part of the paper. Another limitation is that PICP
+can fail when the initial rotation is large. A larger evaluation on more
+shapes and a closer match to the paper's original settings would improve
+this reproduction. The 3D extension includes two generated objects and the real Stanford Bunny
+reconstruction, each with three trials per condition. We use synthetic poses
+and noise even on the Bunny, so we have not tested alignment of two independent
+scanner captures. We cannot claim universal performance on real-world scans.
+Rotation and translation error are based on synthetic known poses, not
+inferred from actual sensor records.
+
+\textbf{Conclusion:} We implemented the main idea of PICP and compared it
+with standard ICP and a simplified Soft-EM-ICP baseline in 2D and 3D. PICP
+showed strong inlier alignment on the synthetic surfaces and on synthetic
+transformations of Stanford Bunny scan geometry. It did not always have the
+lowest all-point nearest-neighbour error and could fail with partial overlap. The new work addresses 3D registration while keeping the
+original 2D reproduction available. It is not evidence of universal
+superiority in registration of independent real 3D sensor scans.
+
+\section{Reproducibility checklist}
+\begin{itemize}[leftmargin=*,itemsep=3pt]
+\item \textbf{Code:} Included in \texttt{code/}, with instructions in \texttt{README.md}.
+\item \textbf{Data:} MPEG-7 2D images, two synthetic 3D surfaces, and the
+Stanford Bunny reconstructed real scan geometry are included. Data provenance and Stanford Bunny dataset credits appear in \path{data/3d/README-data.txt}.
+\item \textbf{Environment:} Python dependencies listed in \texttt{requirements.txt}; CPU execution is enough.
+\item \textbf{Single-command main run:} From the project root, run \texttt{bash run.sh}. On Windows PowerShell use \texttt{python run\_all.py}. Both run the 2D experiment, procedural 3D and Bunny full-overlap experiments,
+plus both 75\% source-coverage partial-overlap experiments and table generation.
+\item \textbf{Extra experiments:} The robustness, parameter sweep, validation, and starting-pose diagnostics have separate scripts documented in the README.
+\item \textbf{Single-case benchmark (optional):} Run \texttt{python benchmark\_single\_case.py} separately for a one-case timing and accuracy demonstration. Results are saved under \path{results/single_case_benchmark/}. This is not a repeated speed test.
+\item \textbf{Random seeds:} 2D main seed 42. 3D data seed 2026; 3D experiment seed 20261112, with fixed shape, outlier, and trial offsets.
+\item \textbf{Expected outputs:} 2D CSVs and figures; 3D results under
+\path{results/3d/}; Bunny results under \path{results/3d_bunny/}.
+Tables~\ref{tab:allrmse}, \ref{tab:3d}, and \ref{tab:bunny} give expected values.
+\item \textbf{Pseudocode:} Separate \texttt{algorithm.txt} file in the project folder.
+\item \textbf{Hardware and runtime:} Fill in the measured CPU, RAM, and running time above before submission.
+\end{itemize}
+
+\begin{thebibliography}{9}
+\bibitem{liu2014}
+J. Liu, S. Du, C. Zhang, J. Zhu, K. Li, and J. Xue,
+``Probability Iterative Closest Point Algorithm for Position Estimation,''
+\emph{2014 IEEE 17th International Conference on Intelligent Transportation Systems},
+pp. 458--463, 2014.
+\url{https://doi.org/10.1109/ITSC.2014.6957732}.
+
+\bibitem{stanfordrepo}
+Stanford University Computer Graphics Laboratory,
+\emph{Stanford 3D Scanning Repository}; source of the scanned and reconstructed Bunny geometry used in our 3D tests.
+\url{https://graphics.stanford.edu/data/3Dscanrep/}.
+
+\bibitem{dataset}
+MPEG-7 Core Experiment CE-Shape-1 Test Set, Part B,
+\emph{Dataset information and download references},
+Universidad del Pa\'is Vasco / Euskal Herriko Unibertsitatea.
+\url{https://www.ehu.eus/ccwintco/index.php/MPEG-7_Core_Experiment_CE-Shape-1_Test_Set._Benchmarking_image_database_for_shape_recognition_techniques}.
+\end{thebibliography}
+
+\end{document}

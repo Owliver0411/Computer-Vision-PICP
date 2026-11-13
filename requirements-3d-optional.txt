@@ -1,0 +1,2 @@
+# Optional interactive point cloud viewer, not needed for experiments
+open3d>=0.18
